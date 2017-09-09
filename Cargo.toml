@@ -1,0 +1,12 @@
+[package]
+name = "wwbot"
+version = "0.1.0"
+authors = ["Dan Knutson <dan.knutson@gmail.com>"]
+
+[dependencies]
+rand = "0.3.14"
+# serenity = "0.3"
+
+[dependencies.serenity]
+git = "https://github.com/zeyla/serenity.git"
+features = ["cache", "framework"]
