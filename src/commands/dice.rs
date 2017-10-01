@@ -2,6 +2,8 @@ extern crate rand;
 
 use rand::Rng;
 
+// specialties - addtional success / still explodes?
+
 command!(roll(_ctx, msg, args) {
 
     // TODO: add usage/help
@@ -63,40 +65,40 @@ command!(roll(_ctx, msg, args) {
 // then iterate over the vec vec to build the string
 // is it faster to just count the tens again instead of allocating? maybe/probably
 
-// initial call: roll_more_tens_maybe(difficulty, successes, vec![(tens, roll)], rng);
-// returns (successes, Vec<(tens_in_roll, roll)>)
-fn roll_more_tens_maybe(
-    difficulty: u8,
-    mut successes: u8,
-    mut rolls: Vec<(u8, Vec<u8>)>,
-    mut rng: rand::ThreadRng,
-) -> (u8, Vec<(u8, Vec<u8>)>) {
-    // this should never be called with empty rolls
-    let tens = rolls.last().unwrap().0;
-    let mut roll = Vec::new();
-    let mut new_tens = 0;
-    for _ in 0..tens {
-        let die = rng.gen_range(1, 11);
-        roll.push(die);
+// // initial call: roll_more_tens_maybe(difficulty, successes, vec![(tens, roll)], rng);
+// // returns (successes, Vec<(tens_in_roll, roll)>)
+// fn roll_more_tens_maybe(
+//     difficulty: u8,
+//     mut successes: u8,
+//     mut rolls: Vec<(u8, Vec<u8>)>,
+//     mut rng: rand::ThreadRng,
+// ) -> (u8, Vec<(u8, Vec<u8>)>) {
+//     // this should never be called with empty rolls
+//     let tens = rolls.last().unwrap().0;
+//     let mut roll = Vec::new();
+//     let mut new_tens = 0;
+//     for _ in 0..tens {
+//         let die = rng.gen_range(1, 11);
+//         roll.push(die);
 
-        if die >= difficulty {
-            successes += 1;
-            // this assumes difficulty is not > 10
-            if die == 10 {
-                new_tens += 1;
-            }
-        }
-    }
-    rolls.push((new_tens, roll));
+//         if die >= difficulty {
+//             successes += 1;
+//             // this assumes difficulty is not > 10
+//             if die == 10 {
+//                 new_tens += 1;
+//             }
+//         }
+//     }
+//     rolls.push((new_tens, roll));
 
-    // recursively call maybe
-    if new_tens > 0 {
-        roll_more_tens_maybe(difficulty, successes, rolls, rng)
-    } else {
-        (successes, rolls)
-    }
+//     // recursively call maybe
+//     if new_tens > 0 {
+//         roll_more_tens_maybe(difficulty, successes, rolls, rng)
+//     } else {
+//         (successes, rolls)
+//     }
 
-}
+// }
 
 // DEPRECATED
 // writes to msg string and returns final successes count
