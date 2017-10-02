@@ -1,144 +1,211 @@
 extern crate rand;
 
-use rand::Rng;
+use std::fmt;
+use std::{thread, time};
 
-// specialties - addtional success / still explodes?
+use rand::Rng;
+use rand::ThreadRng;
+use serenity::utils::MessageBuilder;
+use serenity::model::UserId;
+
+struct Config {
+    dice: u8,
+    difficulty: u8,
+    rerolls: bool,
+    specialty: bool,
+}
+
+// TODO: add usage/help
+impl Config {
+    fn read_dice(&mut self, opt: &str) {
+        if let Ok(num) = opt.parse::<u8>() {
+            self.dice = num;
+        }
+    }
+
+    fn read_diff(&mut self, opt: &str) {
+        match opt {
+            "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" => {
+                self.difficulty = opt.parse::<u8>().unwrap();
+            }
+            _ => {
+                self.read_option(opt);
+            }
+        }
+    }
+
+    fn read_option(&mut self, opt: &str) {
+        match opt {
+            "rerolls" | "reroll" | "r" | "-r" => {
+                self.rerolls = true;
+            }
+            "special" | "specialty" | "s" | "-s" => {
+                self.specialty = true;
+            }
+            _ => (),
+        }
+    }
+}
 
 command!(roll(_ctx, msg, args) {
+    let mut config = Config {
+        dice: 1,
+        difficulty: 6,
+        rerolls: true,
+        specialty: false
+    };
 
-    // TODO: add usage/help
-    let dice = args.single::<u8>().unwrap_or(1);
-    let difficulty = args.single::<u8>().unwrap_or(6);
+    if let Ok(string) = args.single::<String>() {
+        config.read_dice(&string);
+    }
+    if let Ok(string) = args.single::<String>() {
+        config.read_diff(&string);
+    }
+    if let Ok(string) = args.single::<String>() {
+        config.read_option(&string);
+    }
+    if let Ok(string) = args.single::<String>() {
+        config.read_option(&string);
+    }
 
     let mut rng = rand::thread_rng();
     let mut roll: Vec<u8> = Vec::new();
-    let mut successes = 0;
+    let mut successes: i32 = 0;
     let mut tens = 0;
 
-    for _ in 0..dice {
+    for _ in 0..config.dice {
         // extract roll a die maybe?
         // could have a roll d10s thing and just count botches after?
         let die = rng.gen_range(1, 11);
         roll.push(die);
 
-        if die >= difficulty {
+        if die >= config.difficulty {
             successes += 1;
-            // this assumes difficulty is not > 10
             if die == 10 {
                 tens += 1;
+                if config.specialty { successes += 1; }
             }
         }
 
         if die == 1 {
             successes -= 1;
         }
-
     }
+
+    let mut tens_rolls = TensRolls {
+        user_id: msg.author.id,
+        rolls: vec![],
+        difficulty: config.difficulty,
+        specialty: config.specialty,
+        successes,
+        rng,
+    };
 
     let mut tens_string = String::new();
     if tens > 0 {
-        // TODO:
-        // call tens roll function to get tens rolls
-        // initial call: roll_more_tens_maybe(difficulty, successes, vec![(tens, roll)], rng);
-        // use tens rolls to append to tens_string
-    }
-
-    if let Err(why) = msg.channel_id.say(
-        // TODO: name these & make it readable
-        format!("{} rolled {} {} at difficulty {}\nRoll: {:?}\n{}Successes: {}",
-                msg.author.name,
-                dice,
-                if dice == 1 { "die" } else { "dice" },
-                difficulty,
-                roll,
-                tens_string,
-                successes)
-    ) {
-        println!("Error sending {}'s roll: {:?} : {}", msg.author.name, roll, why);
-    };
-
-});
-
-// TODO: do none of the string shit in that function
-// do all the recursive rolling, returning a (u8, Vec<(u8 Vec<u8>)>)
-// total successes, vec of tuples of number of tens in each roll and the roll
-// then iterate over the vec vec to build the string
-// is it faster to just count the tens again instead of allocating? maybe/probably
-
-// // initial call: roll_more_tens_maybe(difficulty, successes, vec![(tens, roll)], rng);
-// // returns (successes, Vec<(tens_in_roll, roll)>)
-// fn roll_more_tens_maybe(
-//     difficulty: u8,
-//     mut successes: u8,
-//     mut rolls: Vec<(u8, Vec<u8>)>,
-//     mut rng: rand::ThreadRng,
-// ) -> (u8, Vec<(u8, Vec<u8>)>) {
-//     // this should never be called with empty rolls
-//     let tens = rolls.last().unwrap().0;
-//     let mut roll = Vec::new();
-//     let mut new_tens = 0;
-//     for _ in 0..tens {
-//         let die = rng.gen_range(1, 11);
-//         roll.push(die);
-
-//         if die >= difficulty {
-//             successes += 1;
-//             // this assumes difficulty is not > 10
-//             if die == 10 {
-//                 new_tens += 1;
-//             }
-//         }
-//     }
-//     rolls.push((new_tens, roll));
-
-//     // recursively call maybe
-//     if new_tens > 0 {
-//         roll_more_tens_maybe(difficulty, successes, rolls, rng)
-//     } else {
-//         (successes, rolls)
-//     }
-
-// }
-
-// DEPRECATED
-// writes to msg string and returns final successes count
-fn append_tens_roll(
-    tens: u8,
-    difficulty: u8,
-    mut successes: u8,
-    msg: &mut String,
-    mut rng: rand::ThreadRng,
-) -> (u8, &mut String) {
-    let omg = format!("\n{} tens rolled!", tens);
-    msg.push_str(&omg);
-
-    // roll dice copypasta
-    let mut tens = 0;
-    let mut roll: Vec<u8> = Vec::new();
-    for _ in 0..tens {
-        let die = rng.gen_range(1, 11);
-        roll.push(die);
-
-        if die >= difficulty {
-            successes += 1;
-            // this assumes difficulty is not > 10
-            if die == 10 {
-                tens += 1;
-            }
+        tens_string = format!("\n{} {} rolled!", tens, if tens > 1 { "tens" } else { "ten" });
+        if config.rerolls {
+            tens_rolls.roll_more_tens_maybe(tens);
         }
     }
 
-    // let rerolls = format!("\nRerolls: {:?}", roll);
-    // msg.push_str(&rerolls);
+    let r = format!("{:?}", roll);
+    let response = MessageBuilder::new()
+        .user(msg.author.id)
+        .push(" rolled ").push(config.dice)
+        .push(if config.dice == 1 { " die" } else { " dice" })
+        .push(" at difficulty ").push(config.difficulty)
+        .push("\nRoll: ").push(r)
+        .push("\nSuccesses: ").push(successes)
+        .push(&tens_string)
+        .build();
 
-    let rerolls = format!("\nRerolls: {:?}", roll);
-    msg.push_str(&rerolls);
+    if let Err(why) = msg.channel_id.say(response) {
+        println!("Error sending {}'s roll: {:?} : {}", msg.author.name, roll, why);
+    };
 
-    // if more tens are rolled, recurse
-    if tens > 0 {
-        // TODO: why does it compile w/o &mut msg?
-        append_tens_roll(tens, difficulty, successes, msg, rng);
+    for tens_roll in tens_rolls.rolls {
+        thread::sleep(time::Duration::from_millis(1500));
+        let r = format!("{:?}", tens_roll.roll);
+        let response = MessageBuilder::new().push(r)
+            .push(
+                if tens_roll.tens > 0 {
+                    format!("\n{} more {}", tens_roll.tens,
+                            if tens_roll.tens > 1 { "tens..." } else { "ten..." })
+                } else {
+                    String::new()
+                }
+            )
+            .push(
+                if tens_roll.last {
+                    format!("\n{} got {} successes", msg.author.name, tens_rolls.successes)
+                } else {
+                    String::new()
+                }
+            )
+            .build();
+
+        if let Err(why) = msg.channel_id.say(response) {
+            println!("Error sending {}'s tens roll: {:?} : {}", msg.author.name, roll, why);
+        };
     }
+});
 
-    (successes, msg)
+struct TensRoll {
+    last: bool,
+    successes: i32,
+    tens: u8,
+    roll: Vec<u8>,
+}
+impl fmt::Display for TensRoll {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self.roll)
+    }
+}
+
+struct TensRolls {
+    user_id: UserId,
+    successes: i32,
+    rolls: Vec<TensRoll>,
+    rng: ThreadRng,
+    difficulty: u8,
+    specialty: bool,
+}
+
+impl TensRolls {
+    fn roll_more_tens_maybe(&mut self, dice_to_roll: u8) {
+        if dice_to_roll == 0 {
+            return;
+        }
+
+        let mut roll: Vec<u8> = Vec::new();
+        let mut successes: i32 = 0;
+        let mut tens = 0;
+
+        for _ in 0..dice_to_roll {
+            let die = self.rng.gen_range(1, 11);
+            roll.push(die);
+
+            if die >= self.difficulty {
+                successes += 1;
+                // this assumes difficulty is not > 10
+                if die == 10 {
+                    tens += 1;
+                    if self.specialty {
+                        successes += 1;
+                    }
+                }
+            }
+        }
+
+        self.successes += successes;
+        self.rolls.push(TensRoll {
+            successes,
+            tens,
+            roll,
+            last: tens == 0,
+        });
+
+        self.roll_more_tens_maybe(tens);
+    }
 }
