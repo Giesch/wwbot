@@ -6,7 +6,6 @@ use std::{thread, time};
 use rand::Rng;
 use rand::ThreadRng;
 use serenity::utils::MessageBuilder;
-use serenity::model::UserId;
 
 struct Config {
     dice: u8,
@@ -58,9 +57,6 @@ command!(roll(_ctx, msg, args) {
     if let Ok(string) = args.single::<String>() {
         config.read_option(&string);
     }
-    if let Ok(string) = args.single::<String>() {
-        config.read_option(&string);
-    }
 
     let mut rng = rand::thread_rng();
     let mut roll: Vec<u8> = Vec::new();
@@ -68,8 +64,6 @@ command!(roll(_ctx, msg, args) {
     let mut tens = 0;
 
     for _ in 0..config.dice {
-        // extract roll a die maybe?
-        // could have a roll d10s thing and just count botches after?
         let die = rng.gen_range(1, 11);
         roll.push(die);
 
@@ -87,7 +81,6 @@ command!(roll(_ctx, msg, args) {
     }
 
     let mut tens_rolls = TensRolls {
-        user_id: msg.author.id,
         rolls: vec![],
         difficulty: config.difficulty,
         specialty: config.specialty,
@@ -119,23 +112,26 @@ command!(roll(_ctx, msg, args) {
     for tens_roll in tens_rolls.rolls {
         thread::sleep(time::Duration::from_millis(1500));
         let r = format!("{:?}", tens_roll.roll);
-        let response = MessageBuilder::new().push(r)
-            .push(
-                if tens_roll.tens > 0 {
-                    format!("\n{} more {}", tens_roll.tens,
-                            if tens_roll.tens > 1 { "tens..." } else { "ten..." })
-                } else {
-                    String::new()
-                }
+
+        let message_builder = MessageBuilder::new().push(r);
+
+        let message_builder = if tens_roll.tens > 0 {
+            message_builder.push(
+                format!("\n{} more {}", tens_roll.tens,
+                        if tens_roll.tens > 1 { "tens..." } else { "ten..." })
             )
-            .push(
-                if tens_roll.last {
-                    format!("\n{} got {} successes", msg.author.name, tens_rolls.successes)
-                } else {
-                    String::new()
-                }
-            )
-            .build();
+        } else {
+            message_builder
+        };
+
+        let message_builder = if tens_roll.last {
+            message_builder.push("\n").user(msg.author.id).push(format!(" got {} successes", tens_rolls.successes))
+        } else {
+            message_builder
+        };
+
+
+        let response = message_builder.build();
 
         if let Err(why) = msg.channel_id.say(response) {
             println!("Error sending {}'s tens roll: {:?} : {}", msg.author.name, roll, why);
@@ -145,10 +141,10 @@ command!(roll(_ctx, msg, args) {
 
 struct TensRoll {
     last: bool,
-    successes: i32,
     tens: u8,
     roll: Vec<u8>,
 }
+
 impl fmt::Display for TensRoll {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self.roll)
@@ -156,7 +152,6 @@ impl fmt::Display for TensRoll {
 }
 
 struct TensRolls {
-    user_id: UserId,
     successes: i32,
     rolls: Vec<TensRoll>,
     rng: ThreadRng,
@@ -180,19 +175,18 @@ impl TensRolls {
 
             if die >= self.difficulty {
                 successes += 1;
-                // this assumes difficulty is not > 10
-                if die == 10 {
-                    tens += 1;
-                    if self.specialty {
-                        successes += 1;
-                    }
+            }
+
+            if die >= 10 {
+                tens += 1;
+                if self.specialty {
+                    successes += 1;
                 }
             }
         }
 
         self.successes += successes;
         self.rolls.push(TensRoll {
-            successes,
             tens,
             roll,
             last: tens == 0,

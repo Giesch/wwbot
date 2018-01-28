@@ -18,7 +18,6 @@ impl EventHandler for Handler {
 }
 
 fn main() {
-    // TODO: error handling for this
     let mut client = Client::new(&env::var("DISCORD_TOKEN").unwrap(), Handler);
 
     client.with_framework(
@@ -26,7 +25,9 @@ fn main() {
             .configure(|c| c.prefix("~"))
             .command("ping", |c| c.exec(commands::meta::ping))
             .command("latency", |c| c.exec(commands::meta::latency))
-            .command("roll", |c| c.known_as("r").exec(commands::dice::roll)),
+            .command("roll", |c| {
+                c.known_as("r").exec(commands::dice_commands::roll)
+            }),
     );
 
     if let Err(why) = client.start() {
