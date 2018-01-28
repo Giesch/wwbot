@@ -11,11 +11,9 @@ use serenity::model::UserId;
 struct Config {
     dice: u8,
     difficulty: u8,
-    rerolls: bool,
     specialty: bool,
 }
 
-// TODO: add usage/help
 impl Config {
     fn read_dice(&mut self, opt: &str) {
         if let Ok(num) = opt.parse::<u8>() {
@@ -36,9 +34,6 @@ impl Config {
 
     fn read_option(&mut self, opt: &str) {
         match opt {
-            "rerolls" | "reroll" | "r" | "-r" => {
-                self.rerolls = true;
-            }
             "special" | "specialty" | "s" | "-s" => {
                 self.specialty = true;
             }
@@ -51,7 +46,6 @@ command!(roll(_ctx, msg, args) {
     let mut config = Config {
         dice: 1,
         difficulty: 6,
-        rerolls: true,
         specialty: false
     };
 
@@ -104,9 +98,7 @@ command!(roll(_ctx, msg, args) {
     let mut tens_string = String::new();
     if tens > 0 {
         tens_string = format!("\n{} {} rolled!", tens, if tens > 1 { "tens" } else { "ten" });
-        if config.rerolls {
-            tens_rolls.roll_more_tens_maybe(tens);
-        }
+        tens_rolls.roll_more_tens_maybe(tens);
     }
 
     let r = format!("{:?}", roll);
