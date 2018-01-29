@@ -12,44 +12,53 @@ pub struct Config {
 }
 
 #[derive(Debug)]
-pub struct InitialRoll {
+pub struct Roll {
     pub roll: Vec<u8>,
     pub successes: i32,
     pub tens: u8,
+    pub ones: u8,
 }
 
-pub fn initial_roll(rng: &mut ThreadRng, config: &mut Config) -> InitialRoll {
+fn roll_d10s(rng: &mut ThreadRng, dice: u8, difficulty: u8, specialty: bool) -> Roll {
     let mut roll: Vec<u8> = Vec::new();
-    let mut successes: i32 = 0;
+    let mut successes = 0;
     let mut tens = 0;
+    let mut ones = 0;
 
-    for _ in 0..config.dice {
+    for _ in 0..dice {
         let die = rng.gen_range(1, 11);
         roll.push(die);
 
-        if die >= config.difficulty {
+        if die >= difficulty {
             successes += 1;
             if die == 10 {
                 tens += 1;
-                if config.specialty {
+                if specialty {
                     successes += 1;
                 }
             }
         }
-
         if die == 1 {
-            successes -= 1;
+            ones += 1;
         }
     }
 
-    InitialRoll {
+    Roll {
         roll,
         successes,
         tens,
+        ones,
     }
 }
 
-pub fn tens_rolls(config: &Config, initial_roll: &InitialRoll) -> TensRolls {
+pub fn initial_roll(rng: &mut ThreadRng, config: &mut Config) -> Roll {
+    let mut roll = roll_d10s(rng, config.dice, config.difficulty, config.specialty);
+    roll.successes -= roll.ones as i32;
+
+    roll
+}
+
+pub fn tens_rolls(config: &Config, initial_roll: &Roll) -> TensRolls {
     let mut tens_rolls = TensRolls {
         rolls: vec![],
         difficulty: config.difficulty,
@@ -57,10 +66,7 @@ pub fn tens_rolls(config: &Config, initial_roll: &InitialRoll) -> TensRolls {
         successes: initial_roll.successes,
         rng: rand::thread_rng(),
     };
-
-    if initial_roll.tens > 0 {
-        tens_rolls.roll_more_tens_maybe(initial_roll.tens);
-    }
+    tens_rolls.roll_more_tens_maybe(initial_roll.tens);
 
     tens_rolls
 }
@@ -92,33 +98,15 @@ impl TensRolls {
             return;
         }
 
-        let mut roll: Vec<u8> = Vec::new();
-        let mut successes: i32 = 0;
-        let mut tens = 0;
+        let roll = roll_d10s(&mut self.rng, dice_to_roll, self.difficulty, self.specialty);
 
-        for _ in 0..dice_to_roll {
-            let die = self.rng.gen_range(1, 11);
-            roll.push(die);
-
-            if die >= self.difficulty {
-                successes += 1;
-            }
-
-            if die >= 10 {
-                tens += 1;
-                if self.specialty {
-                    successes += 1;
-                }
-            }
-        }
-
-        self.successes += successes;
+        self.successes += roll.successes;
         self.rolls.push(TensRoll {
-            tens,
-            roll,
-            last: tens == 0,
+            tens: roll.tens,
+            roll: roll.roll,
+            last: roll.tens == 0,
         });
 
-        self.roll_more_tens_maybe(tens);
+        self.roll_more_tens_maybe(roll.tens);
     }
 }
