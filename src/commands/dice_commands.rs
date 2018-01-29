@@ -55,7 +55,7 @@ command!(roll(_ctx, msg, args) {
     let initial_roll = initial_roll(&mut rng, &mut config);
     let tens_rolls = tens_rolls(&config, &initial_roll);
 
-    let r = format!("{:?}", initial_roll.roll);
+    let r = format!("{:?}", initial_roll.dice);
 
     let mut message_builder = MessageBuilder::new()
         .user(msg.author.id)
@@ -78,12 +78,12 @@ command!(roll(_ctx, msg, args) {
     let response = message_builder.build();
 
     if let Err(why) = msg.channel_id.say(response) {
-        println!("Error sending {}'s roll: {:?} : {}", msg.author.name, initial_roll.roll, why);
+        println!("Error sending {}'s roll: {:?} : {}", msg.author.name, initial_roll.dice, why);
     };
 
     for tens_roll in tens_rolls.rolls {
         thread::sleep(time::Duration::from_millis(1500));
-        let r = format!("{:?}", tens_roll.roll);
+        let r = format!("{:?}", tens_roll.dice);
 
         let message_builder = MessageBuilder::new().push(r);
 
