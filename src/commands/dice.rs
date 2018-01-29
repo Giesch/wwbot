@@ -57,7 +57,7 @@ fn count_roll(dice: Vec<u8>, difficulty: u8, specialty: bool) -> Roll {
     }
 }
 
-pub fn initial_roll(rng: &mut ThreadRng, config: &mut Config) -> Roll {
+pub fn initial_roll(rng: &mut ThreadRng, config: &Config) -> Roll {
     let dice = roll_d10s(rng, config.dice);
     let mut roll = count_roll(dice, config.difficulty, config.specialty);
     roll.successes -= roll.ones as i32;
