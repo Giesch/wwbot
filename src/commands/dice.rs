@@ -1,15 +1,25 @@
 extern crate rand;
 
 use std::fmt;
-use std::{thread, time};
 
 use rand::Rng;
 use rand::ThreadRng;
-use serenity::utils::MessageBuilder;
 
-use commands::dice_commands::Config;
+pub struct Config {
+    pub dice: u8,
+    pub difficulty: u8,
+    pub specialty: bool,
+}
 
-pub fn intitial_roll(mut rng: ThreadRng, config: Config, mut roll: Vec<u8>) -> TensRolls {
+#[derive(Debug)]
+pub struct InitialRoll {
+    pub roll: Vec<u8>,
+    pub successes: i32,
+    pub tens: u8,
+}
+
+pub fn initial_roll(rng: &mut ThreadRng, config: &mut Config) -> InitialRoll {
+    let mut roll: Vec<u8> = Vec::new();
     let mut successes: i32 = 0;
     let mut tens = 0;
 
@@ -32,13 +42,27 @@ pub fn intitial_roll(mut rng: ThreadRng, config: Config, mut roll: Vec<u8>) -> T
         }
     }
 
-    TensRolls {
+    InitialRoll {
+        roll,
+        successes,
+        tens,
+    }
+}
+
+pub fn tens_rolls(config: &Config, initial_roll: &InitialRoll) -> TensRolls {
+    let mut tens_rolls = TensRolls {
         rolls: vec![],
         difficulty: config.difficulty,
         specialty: config.specialty,
-        successes,
-        rng,
+        successes: initial_roll.successes,
+        rng: rand::thread_rng(),
+    };
+
+    if initial_roll.tens > 0 {
+        tens_rolls.roll_more_tens_maybe(initial_roll.tens);
     }
+
+    tens_rolls
 }
 
 

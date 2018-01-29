@@ -1,45 +1,35 @@
 extern crate rand;
 
-use std::fmt;
 use std::{thread, time};
 
-use rand::Rng;
-use rand::ThreadRng;
 use serenity::utils::MessageBuilder;
 
-use commands::dice::{TensRoll, TensRolls};
+use commands::dice::*;
 
-pub struct Config {
-    pub dice: u8,
-    pub difficulty: u8,
-    pub specialty: bool,
+fn read_dice(config: &mut Config, opt: &str) {
+    if let Ok(num) = opt.parse::<u8>() {
+        config.dice = num;
+    }
 }
 
-impl Config {
-    fn read_dice(&mut self, opt: &str) {
-        if let Ok(num) = opt.parse::<u8>() {
-            self.dice = num;
+// TODO: i only thought i understood what mut means
+fn read_diff(mut config: &mut Config, opt: &str) {
+    match opt {
+        "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" => {
+            config.difficulty = opt.parse::<u8>().unwrap();
+        }
+        _ => {
+            read_option(&mut config, opt);
         }
     }
+}
 
-    fn read_diff(&mut self, opt: &str) {
-        match opt {
-            "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" => {
-                self.difficulty = opt.parse::<u8>().unwrap();
-            }
-            _ => {
-                self.read_option(opt);
-            }
+fn read_option(config: &mut Config, opt: &str) {
+    match opt {
+        "special" | "specialty" | "s" | "-s" => {
+            config.specialty = true;
         }
-    }
-
-    fn read_option(&mut self, opt: &str) {
-        match opt {
-            "special" | "specialty" | "s" | "-s" => {
-                self.specialty = true;
-            }
-            _ => (),
-        }
+        _ => (),
     }
 }
 
@@ -51,64 +41,44 @@ command!(roll(_ctx, msg, args) {
     };
 
     if let Ok(string) = args.single::<String>() {
-        config.read_dice(&string);
+        read_dice(&mut config, &string);
     }
     if let Ok(string) = args.single::<String>() {
-        config.read_diff(&string);
+        read_diff(&mut config, &string);
     }
     if let Ok(string) = args.single::<String>() {
-        config.read_option(&string);
+        read_option(&mut config, &string);
     }
 
     let mut rng = rand::thread_rng();
-    let mut roll: Vec<u8> = Vec::new();
-    let mut successes: i32 = 0;
-    let mut tens = 0;
 
-    for _ in 0..config.dice {
-        let die = rng.gen_range(1, 11);
-        roll.push(die);
+    let initial_roll = initial_roll(&mut rng, &mut config);
+    let tens_rolls = tens_rolls(&config, &initial_roll);
 
-        if die >= config.difficulty {
-            successes += 1;
-            if die == 10 {
-                tens += 1;
-                if config.specialty { successes += 1; }
-            }
-        }
+    let r = format!("{:?}", initial_roll.roll);
 
-        if die == 1 {
-            successes -= 1;
-        }
-    }
-
-    let mut tens_rolls = TensRolls {
-        rolls: vec![],
-        difficulty: config.difficulty,
-        specialty: config.specialty,
-        successes,
-        rng,
-    };
-
-    let mut tens_string = String::new();
-    if tens > 0 {
-        tens_string = format!("\n{} {} rolled!", tens, if tens > 1 { "tens" } else { "ten" });
-        tens_rolls.roll_more_tens_maybe(tens);
-    }
-
-    let r = format!("{:?}", roll);
-    let response = MessageBuilder::new()
+    let mut message_builder = MessageBuilder::new()
         .user(msg.author.id)
         .push(" rolled ").push(config.dice)
         .push(if config.dice == 1 { " die" } else { " dice" })
         .push(" at difficulty ").push(config.difficulty)
         .push("\nRoll: ").push(r)
-        .push("\nSuccesses: ").push(successes)
-        .push(&tens_string)
-        .build();
+        .push("\nSuccesses: ").push(initial_roll.successes);
+
+    let message_builder = if initial_roll.tens > 0 {
+        message_builder.push(
+            format!("\n{} {} rolled!",
+                    initial_roll.tens,
+                    if initial_roll.tens > 1 { "tens" } else { "ten" })
+        )
+    } else {
+        message_builder
+    };
+
+    let response = message_builder.build();
 
     if let Err(why) = msg.channel_id.say(response) {
-        println!("Error sending {}'s roll: {:?} : {}", msg.author.name, roll, why);
+        println!("Error sending {}'s roll: {:?} : {}", msg.author.name, initial_roll.roll, why);
     };
 
     for tens_roll in tens_rolls.rolls {
@@ -132,11 +102,10 @@ command!(roll(_ctx, msg, args) {
             message_builder
         };
 
-
         let response = message_builder.build();
 
         if let Err(why) = msg.channel_id.say(response) {
-            println!("Error sending {}'s tens roll: {:?} : {}", msg.author.name, roll, why);
+            println!("Error sending {}'s tens roll: {:?} : {}", msg.author.name, initial_roll, why);
         };
     }
 });
