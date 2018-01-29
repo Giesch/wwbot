@@ -34,17 +34,17 @@ fn count_roll(dice: Vec<u8>, difficulty: u8, specialty: bool) -> Roll {
     let mut tens = 0;
     let mut ones = 0;
 
-    for die in dice.iter() {
-        if *die >= difficulty {
+    for &die in dice.iter() {
+        if die >= difficulty {
             successes += 1;
-            if *die == 10 {
+            if die == 10 {
                 tens += 1;
                 if specialty {
                     successes += 1;
                 }
             }
         }
-        if *die == 1 {
+        if die == 1 {
             ones += 1;
         }
     }
@@ -121,9 +121,33 @@ impl TensRolls {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
 
     #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+    fn count_roll_counts_successes() {
+        let dice = vec![1, 2, 3, 4];
+        let roll = count_roll(dice, 3, false);
+        assert_eq!(2, roll.successes);
+    }
+
+    #[test]
+    fn count_roll_counts_ones() {
+        let dice = vec![1, 2, 3, 4];
+        let roll = count_roll(dice, 3, false);
+        assert_eq!(1, roll.ones);
+    }
+
+    #[test]
+    fn count_roll_counts_tens() {
+        let dice = vec![1, 2, 10, 10];
+        let roll = count_roll(dice, 3, false);
+        assert_eq!(2, roll.tens);
+    }
+
+    #[test]
+    fn count_roll_doubles_tens_for_specialties() {
+        let dice = vec![1, 2, 10, 10];
+        let roll = count_roll(dice, 3, true);
+        assert_eq!(4, roll.successes);
     }
 }
