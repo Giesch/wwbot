@@ -7,10 +7,12 @@ use rand::Rng;
 use rand::ThreadRng;
 use serenity::utils::MessageBuilder;
 
-struct Config {
-    dice: u8,
-    difficulty: u8,
-    specialty: bool,
+use commands::dice::{TensRoll, TensRolls};
+
+pub struct Config {
+    pub dice: u8,
+    pub difficulty: u8,
+    pub specialty: bool,
 }
 
 impl Config {
@@ -138,60 +140,3 @@ command!(roll(_ctx, msg, args) {
         };
     }
 });
-
-struct TensRoll {
-    last: bool,
-    tens: u8,
-    roll: Vec<u8>,
-}
-
-impl fmt::Display for TensRoll {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self.roll)
-    }
-}
-
-struct TensRolls {
-    successes: i32,
-    rolls: Vec<TensRoll>,
-    rng: ThreadRng,
-    difficulty: u8,
-    specialty: bool,
-}
-
-impl TensRolls {
-    fn roll_more_tens_maybe(&mut self, dice_to_roll: u8) {
-        if dice_to_roll == 0 {
-            return;
-        }
-
-        let mut roll: Vec<u8> = Vec::new();
-        let mut successes: i32 = 0;
-        let mut tens = 0;
-
-        for _ in 0..dice_to_roll {
-            let die = self.rng.gen_range(1, 11);
-            roll.push(die);
-
-            if die >= self.difficulty {
-                successes += 1;
-            }
-
-            if die >= 10 {
-                tens += 1;
-                if self.specialty {
-                    successes += 1;
-                }
-            }
-        }
-
-        self.successes += successes;
-        self.rolls.push(TensRoll {
-            tens,
-            roll,
-            last: tens == 0,
-        });
-
-        self.roll_more_tens_maybe(tens);
-    }
-}
