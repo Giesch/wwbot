@@ -13,38 +13,44 @@ pub struct Config {
 
 #[derive(Debug)]
 pub struct Roll {
-    pub roll: Vec<u8>,
+    pub dice: Vec<u8>,
     pub successes: i32,
     pub tens: u8,
     pub ones: u8,
 }
 
-fn roll_d10s(rng: &mut ThreadRng, dice: u8, difficulty: u8, specialty: bool) -> Roll {
-    let mut roll: Vec<u8> = Vec::new();
+fn roll_d10s(rng: &mut ThreadRng, n: u8) -> Vec<u8> {
+    let mut dice: Vec<u8> = Vec::new();
+    for _ in 0..n {
+        let die = rng.gen_range(1, 11);
+        dice.push(die);
+    }
+
+    dice
+}
+
+fn count_roll(dice: Vec<u8>, difficulty: u8, specialty: bool) -> Roll {
     let mut successes = 0;
     let mut tens = 0;
     let mut ones = 0;
 
-    for _ in 0..dice {
-        let die = rng.gen_range(1, 11);
-        roll.push(die);
-
-        if die >= difficulty {
+    for die in dice.iter() {
+        if *die >= difficulty {
             successes += 1;
-            if die == 10 {
+            if *die == 10 {
                 tens += 1;
                 if specialty {
                     successes += 1;
                 }
             }
         }
-        if die == 1 {
+        if *die == 1 {
             ones += 1;
         }
     }
 
     Roll {
-        roll,
+        dice,
         successes,
         tens,
         ones,
@@ -52,7 +58,8 @@ fn roll_d10s(rng: &mut ThreadRng, dice: u8, difficulty: u8, specialty: bool) -> 
 }
 
 pub fn initial_roll(rng: &mut ThreadRng, config: &mut Config) -> Roll {
-    let mut roll = roll_d10s(rng, config.dice, config.difficulty, config.specialty);
+    let dice = roll_d10s(rng, config.dice);
+    let mut roll = count_roll(dice, config.difficulty, config.specialty);
     roll.successes -= roll.ones as i32;
 
     roll
@@ -75,12 +82,12 @@ pub fn tens_rolls(config: &Config, initial_roll: &Roll) -> TensRolls {
 pub struct TensRoll {
     pub last: bool,
     pub tens: u8,
-    pub roll: Vec<u8>,
+    pub dice: Vec<u8>,
 }
 
 impl fmt::Display for TensRoll {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self.roll)
+        write!(f, "{:?}", self.dice)
     }
 }
 
@@ -98,15 +105,25 @@ impl TensRolls {
             return;
         }
 
-        let roll = roll_d10s(&mut self.rng, dice_to_roll, self.difficulty, self.specialty);
+        let dice = roll_d10s(&mut self.rng, dice_to_roll);
+        let roll = count_roll(dice, self.difficulty, self.specialty);
 
         self.successes += roll.successes;
         self.rolls.push(TensRoll {
             tens: roll.tens,
-            roll: roll.roll,
+            dice: roll.dice,
             last: roll.tens == 0,
         });
 
         self.roll_more_tens_maybe(roll.tens);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    #[test]
+    fn it_works() {
+        assert_eq!(2 + 2, 4);
     }
 }
