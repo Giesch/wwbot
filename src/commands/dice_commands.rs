@@ -13,6 +13,7 @@ command!(roll(_ctx, msg, args) {
 
     let mut rng = rand::thread_rng();
 
+
     let initial_roll = initial_roll(&mut rng, &config);
     let tens_rolls = tens_rolls(&config, &initial_roll);
 
